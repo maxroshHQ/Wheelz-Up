@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WheelzUP</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: linear-gradient(135deg, #0E0E14, #1B1F3B);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Loader */
+    #loader {
+      position: fixed;
+      inset: 0;
+      background: #0E0E14;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+      transition: opacity 0.5s ease;
+    }
+    #loader div {
+      width: 50px;
+      height: 50px;
+      border: 5px solid #00FFAE;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Navbar */
+    nav {
+      width: 100%;
+      padding: 1rem 2rem;
+      text-align: center;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.6rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: #00FFAE;
+    }
+
+    /* Main container */
+    .container {
+      text-align: center;
+      width: 95%;
+      max-width: 700px;
+      margin-top: 2rem;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 20px;
+      padding: 2rem;
+      box-shadow: 0 0 20px rgba(0, 255, 174, 0.1);
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 100px;
+      border: none;
+      border-radius: 10px;
+      padding: 10px;
+      resize: none;
+      font-size: 1rem;
+      outline: none;
+      margin-bottom: 1rem;
+      font-family: 'Poppins', sans-serif;
+    }
+
+    button {
+      background: #00FFAE;
+      color: #0E0E14;
+      border: none;
+      padding: 0.8rem 1.4rem;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      margin: 0.5rem;
+    }
+
+    button:hover {
+      background: #FF3C8D;
+      color: #fff;
+      transform: scale(1.05);
+    }
+
+    canvas {
+      margin-top: 2rem;
+      max-width: 100%;
+      background: #111;
+      border-radius: 50%;
+      box-shadow: 0 0 25px rgba(0,255,174,0.2);
+    }
+
+    #winner {
+      margin-top: 1rem;
+      font-size: 1.4rem;
+      color: #00FFAE;
+      font-weight: 600;
+    }
+
+    @media(max-width: 600px) {
+      nav { font-size: 1.2rem; }
+      button { width: 100%; margin: 0.3rem 0; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Loader -->
+  <div id="loader"><div></div></div>
+
+  <!-- Navbar -->
+  <nav>Wheelz<span style="color:#FF3C8D;">UP</span>.</nav>
+
+  <!-- Container -->
+  <div class="container">
+    <textarea id="nameInput" placeholder="Enter names, one per line..."></textarea>
+    <div>
+      <button id="loadBtn">Load Names</button>
+      <button id="spinBtn" disabled>Spin</button>
+      <button id="clearBtn">Clear</button>
+    </div>
+    <canvas id="wheelCanvas" width="400" height="400"></canvas>
+    <div id="winner"></div>
+  </div>
+
+  <script>
+    // Loader
+    window.addEventListener('load', () => {
+      setTimeout(() => document.getElementById('loader').style.opacity = '0', 800);
+      setTimeout(() => document.getElementById('loader').style.display = 'none', 1300);
+    });
+
+    const canvas = document.getElementById('wheelCanvas');
+    const ctx = canvas.getContext('2d');
+    const loadBtn = document.getElementById('loadBtn');
+    const spinBtn = document.getElementById('spinBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const nameInput = document.getElementById('nameInput');
+    const winnerDisplay = document.getElementById('winner');
+
+    let names = [];
+    let startAngle = 0;
+    let arc = 0;
+    let spinTimeout = null;
+    let spinAngleStart = 0;
+    let spinTime = 0;
+    let spinTimeTotal = 0;
+    let spinning = false;
+
+    const colors = [
+      "#00FFAE", "#FF3C8D", "#00BFFF", "#FFD700",
+      "#7FFF00", "#FF6347", "#ADFF2F", "#FF69B4"
+    ];
+
+    // Draw wheel
+    function drawWheel() {
+      const outsideRadius = canvas.width / 2 - 10;
+      const textRadius = outsideRadius - 40;
+      const insideRadius = 0;
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (names.length === 0) return;
+
+      arc = 2 * Math.PI / names.length;
+
+      for (let i = 0; i < names.length; i++) {
+        const angle = startAngle + i * arc;
+        ctx.fillStyle = colors[i % colors.length];
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.arc(centerX, centerY, outsideRadius, angle, angle + arc);
+        ctx.lineTo(centerX, centerY);
+        ctx.fill();
+
+        // ✅ Draw text (fixed)
+        ctx.save();
+        ctx.fillStyle = "#fff";
+        ctx.font = `${Math.floor(outsideRadius / 10)}px 'Poppins'`;
+        ctx.translate(centerX, centerY);
+        ctx.rotate(angle + arc / 2);
+        ctx.textAlign = "right";
+        ctx.fillText(names[i], textRadius, 10);
+        ctx.restore();
+      }
+
+      // Pointer
+      ctx.beginPath();
+      ctx.moveTo(centerX - 10, centerY - (outsideRadius + 5));
+      ctx.lineTo(centerX + 10, centerY - (outsideRadius + 5));
+      ctx.lineTo(centerX, centerY - (outsideRadius - 20));
+      ctx.fillStyle = "#FF3C8D";
+      ctx.fill();
+    }
+
+    // Spin
+    function spin() {
+      if (spinning || names.length === 0) return;
+      spinning = true;
+      spinAngleStart = Math.random() * 10 + 10;
+      spinTime = 0;
+      spinTimeTotal = Math.random() * 3000 + 4000;
+      rotateWheel();
+    }
+
+    function rotateWheel() {
+      spinTime += 30;
+      if (spinTime >= spinTimeTotal) {
+        stopRotateWheel();
+        return;
+      }
+      const spinAngle = spinAngleStart - easeOut(spinTime, 0, spinAngleStart, spinTimeTotal);
+      startAngle += (spinAngle * Math.PI / 180);
+      drawWheel();
+      spinTimeout = setTimeout(rotateWheel, 30);
+    }
+
+    function stopRotateWheel() {
+      clearTimeout(spinTimeout);
+      const degrees = startAngle * 180 / Math.PI + 90;
+      const arcd = arc * 180 / Math.PI;
+      const index = Math.floor((360 - (degrees % 360)) / arcd) % names.length;
+      winnerDisplay.textContent = `🎉 Winner: ${names[index]}!`;
+      spinning = false;
+    }
+
+    function easeOut(t, b, c, d) {
+      const ts = (t /= d) * t;
+      const tc = ts * t;
+      return b + c * (tc + -3 * ts + 3 * t);
+    }
+
+    // Load names
+    loadBtn.addEventListener('click', () => {
+      const input = nameInput.value.trim();
+      if (!input) return alert('Enter at least one name.');
+      names = [...new Set(input.split('\n').map(n => n.trim()).filter(Boolean))];
+      if (names.length === 0) return alert('No valid names found.');
+      spinBtn.disabled = false;
+      drawWheel();
+      winnerDisplay.textContent = '';
+    });
+
+    // Clear
+    clearBtn.addEventListener('click', () => {
+      names = [];
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      nameInput.value = '';
+      winnerDisplay.textContent = '';
+      spinBtn.disabled = true;
+    });
+
+    spinBtn.addEventListener('click', spin);
+  </script>
+</body>
+</html>
